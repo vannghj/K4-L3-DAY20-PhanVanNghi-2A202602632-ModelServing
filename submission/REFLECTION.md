@@ -139,19 +139,24 @@ phải "bật GPU" mà là **không dùng E-core và không chiếm hết core**
 > Bỏ trống nếu không làm. Xem `docs/bonus/README.md`. Đừng làm hết — **một** finding sâu
 > ăn điểm hơn năm bảng nông.
 
-**Đã làm:** _<B1 build-compare / B2 sweep nào / B4 challenge nào / B5 lựa chọn nào>_
+**Đã làm:** B5 — C8 semantic cache với embedding thật (`make serve-embed` + `make semantic-cache`,
+không dùng `--offline`), chạy ở threshold 0.80 / 0.87 / 0.90. Chi tiết: `benchmarks/bonus-semantic-cache.md`.
 
 **Numbers:**
 
 ```
-before:  <số>
-after:   <số>
-speedup: <X.Y>×
+before:  threshold 0.80 → 7/8 hit (88%), nhưng 3 false hit (#2, #5, #7 trả câu trả lời SAI)
+after:   threshold 0.87 → 3/8 hit (38%), 0 false hit, miss 1 paraphrase thật (#4)
+cost:    miss ~850–2200 ms (gọi LLM) · hit 0 ms
 ```
 
 **Điều này nói lên gì mà deck chưa nói:**
 
-_(để trống nếu bạn không làm phần này)_
+Deck nói semantic cache tiết kiệm 100% compute khi hit, nhưng không nói hit rate có thể là
+**ảo**. Dùng mean-pooled state của model chat 0.8B làm embedding thì mọi câu đều có cosine
+0.85–0.89. Câu lạ (#7, 0.86) còn giống câu gốc hơn một paraphrase thật (#4, 0.85), nên không
+có threshold nào vừa bắt hết paraphrase vừa tránh được false hit. Threshold phải chọn theo
+**false-hit rate**, và cần một embedding model chuyên dụng.
 
 ---
 
