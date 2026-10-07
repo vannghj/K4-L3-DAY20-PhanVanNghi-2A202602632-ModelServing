@@ -44,8 +44,27 @@ chỉ có **6 layer** (`32768 cells, 6 layers`): Qwen3.5 là kiến trúc **hybr
 cache" trong deck nhắm tới: với một model dense 24 layer, KV f16 ở 32k context sẽ là ~1.5 GB thay
 vì 384 MiB.
 
+**Bộ nhớ theo `--ctx-size`** (chỉ khởi động server, không chạy eval; RSS đo sau khi load):
+
+| KV type | ctx | KV cache (MiB) | recurrent state (MiB) | RSS (MB) |
+|:--|--:|--:|--:|--:|
+| f16 | 4096 | 48.00 | 19.27 | 697 |
+| f16 | 16384 | 192.00 | 19.27 | 859 |
+| f16 | 32768 | 384.00 | 19.27 | 1052 |
+| f16 | 65536 | 768.00 | 19.27 | 1437 |
+| q8_0 | 4096 | 25.50 | 19.27 | 694 |
+| q8_0 | 16384 | 102.00 | 19.27 | 771 |
+| q8_0 | 32768 | 204.00 | 19.27 | 874 |
+| q8_0 | 65536 | 408.00 | 19.27 | 1078 |
+
+KV cache tăng **tuyến tính** theo context (f16: 48 → 768 MiB khi ctx tăng 16×, tức 12 KiB/token
+cho 6 layer attention), còn recurrent state đứng yên ở **19.27 MiB** ở mọi kích thước. RSS tăng
+theo đúng phần KV: 697 → 1437 MB (f16), 694 → 1078 MB (q8_0). Ở 64k context, q8_0 tiết kiệm
+360 MiB KV / 359 MB RSS.
+
 **Latency: quantize KV làm decode chậm hơn 27%.** Decode 79.2 → 57.9 (q8_0) / 58.8 (q4_0) tok/s;
-prefill gần như không đổi (1844 → 1652 / 1684 tok/s). Ở mỗi bước decode, kernel flash attention
+prefill gần như không đổi (1844 → 1652 / 1684 tok/s). Kết quả này **lặp lại được**: lần chạy C2
+đầu tiên (trước khi sửa phần đọc log) cho decode 76.4 / 55.9 / 57.2 tok/s, cũng chậm hơn ~27%. Ở mỗi bước decode, kernel flash attention
 trên Metal phải **dequantize toàn bộ K/V** (~5k token × 6 layer) trước khi tính attention. Như các
 phần trước đã cho thấy, model 0.8B này **không bị chặn bởi bandwidth**, nên số byte đọc ít hơn
 không bù được phần tính toán dequantize thêm. Kiểu đánh đổi này chỉ có lợi khi decode thật sự

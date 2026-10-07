@@ -7,11 +7,18 @@ Setup: `make serve` (:8080, Qwen3.5 0.8B Q4_K_M) + `make serve-embed` (:8081, **
 
 | Threshold | Hits | True hit | False hit (sai câu trả lời) | Paraphrase bị miss |
 |--:|--:|--|--|--|
-| 0.80 | 7/8 (88%) | #3, #6, #4, #8 | **#2, #5, #7** | — |
+| 0.80 | 7/8 (88%) | #3, #6 | **#2, #4, #5, #7, #8** | — |
 | 0.87 | 3/8 (38%) | #3, #6, #8 | **0** | #4 (sim 0.85) |
 | 0.90 | 2/8 (25%) | #6, #8 | 0 | #3, #4 |
 
 Một cache hit tiết kiệm toàn bộ lời gọi LLM: miss tốn ~850–2200 ms, hit tốn 0 ms.
+
+**Cách phân loại hit:** demo chỉ **lưu vào cache khi miss**. Ở threshold 0.80 chỉ #1 bị miss, nên
+suốt lượt chạy đó cache chỉ chứa **một** câu trả lời: câu về goodput của #1. Mọi hit vì vậy đều
+trả câu trả lời về goodput. Chỉ #3 và #6 (paraphrase của #1) là hit đúng. #4 và #8 tuy là
+paraphrase, nhưng là paraphrase của #2 và #5, mà #2, #5 chưa từng được lưu, nên chúng nhận nhầm
+câu trả lời goodput. Bằng chứng nằm ngay trong điểm số: #8 đạt 0.85 ở lượt 0.80 (chỉ so được với
+#1), nhưng đạt 0.96 ở lượt 0.87, khi #5 đã miss và được lưu.
 
 ## Raw output (threshold 0.80)
 
@@ -34,8 +41,8 @@ LLM calls saved: 7
 
 **Mean-pooled hidden state của một model chat 0.8B là một embedder rất kém.** Mọi cặp câu đều
 có cosine 0.85–0.89, kể cả các câu **không liên quan**: #7 "What is prefix caching?" đạt 0.86
-và hit vào câu trả lời về goodput. Ở threshold mặc định 0.80, 3/7 hit là **sai**; cache sẽ trả
-câu trả lời sai cho người dùng, và còn tệ hơn là không có cache.
+và hit vào câu trả lời về goodput. Ở threshold mặc định 0.80, **5/7 hit trả câu trả lời
+sai**; cache này tệ hơn là không có cache.
 
 Khoảng phân tách giữa paraphrase thật và câu lạ chỉ ~0.01: #4 (paraphrase thật) = 0.85, còn #7
 (câu lạ) = 0.86. Ở 0.87 tôi có 0 false hit nhưng mất #4; không có threshold nào vừa bắt hết
@@ -48,13 +55,14 @@ false-hit rate đo được trên dữ liệu thật, không theo hit rate.
 
 ## Chẩn đoán theo yêu cầu C8
 
-- **False hit:** #7 *"What is prefix caching?"*, một chủ đề mới, có similarity **0.86** và hit vào
-  câu trả lời đã cache (ở threshold 0.80). #2 *"Explain TTFT and TPOT."* (0.86) và #5 *"How does
-  PagedAttention work?"* (0.85) cũng là false hit: lúc đó cache chưa có câu nào cùng chủ đề.
+- **False hit:** #7 *"What is prefix caching?"*, một chủ đề mới, có similarity **0.86** với #1
+  (goodput) và nhận câu trả lời về goodput (threshold 0.80). Cùng lượt đó, #2 (0.86), #4 (0.85),
+  #5 (0.85) và #8 (0.85) cũng nhận câu trả lời về goodput: tổng cộng 5 false hit.
 - **False miss:** #4 *"What does time to first token mean?"* là paraphrase thật của #2 nhưng
-  chỉ đạt **0.85**, và bị miss ở threshold 0.87.
-- **Không threshold nào sửa được cả hai:** muốn #4 hit thì threshold phải ≤ 0.85, nhưng khi đó
-  #7 (0.86) chắc chắn hit sai. Muốn chặn #7 thì threshold phải > 0.86, và khi đó #4 bị miss. Câu
+  bị miss ở threshold 0.87. Điểm 0.85 là điểm **cao nhất** của #4 so với các câu đã lưu {#1, #2},
+nên similarity với paraphrase thật (#2) của nó **≤ 0.85**.
+- **Không threshold nào sửa được cả hai:** muốn #4 hit vào #2 thì threshold phải ≤ 0.85,
+  nhưng khi đó #7 (0.86 với #1, một câu không liên quan) chắc chắn hit sai. Muốn chặn #7 thì threshold phải > 0.86, và khi đó #4 bị miss. Câu
   lạ lại có điểm **cao hơn** paraphrase thật, nên mọi threshold đều sai ít nhất một trường hợp.
 
 **Vì sao decoder là encoder kém:** model chat được train để dự đoán **token kế tiếp**. Hidden

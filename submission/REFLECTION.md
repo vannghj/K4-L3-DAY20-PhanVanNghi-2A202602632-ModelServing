@@ -143,8 +143,8 @@ phải "bật GPU" mà là **không dùng E-core và không chiếm hết core**
 
 | # | Làm gì | Report |
 |---|---|---|
-| B1 | `make build-llama` (`-DGGML_NATIVE=ON`, Metal) + `make compare-builds` (`LAB_N_THREADS=4`), rồi đo xen kẽ 5 vòng để tách nhiễu | `bonus-build-compare-tg128.md`, `bonus-b1-interleaved.md` |
-| B2 | `make sweep-gpu` (`-ngl` 0→99) và `make sweep-ctx` (256→8192 token) | `bonus-gpu-offload-sweep.md`, `bonus-ctx-len-sweep.md` |
+| B1 | `make build-llama` (`-DGGML_NATIVE=ON`, Metal) + `make compare-builds` (`LAB_N_THREADS=4`), rồi đo xen kẽ 5 vòng để tách nhiễu, kèm bằng chứng CPU feature (`sysctl`, `system_info`) | `bonus-build-compare-tg128.md`, `bonus-b1-interleaved.md` |
+| B2 | `make sweep-gpu` (`-ngl` 0→99, chạy 2 lần) và `make sweep-ctx` (256→8192 token) | `bonus-gpu-offload-sweep.md`, `bonus-ctx-len-sweep.md` |
 | B3 | Before/after của GPU offload (từ B1/B2), đo lặp 3 vòng | xem Numbers bên dưới |
 | B4 | **C2** KV cache quantization: f16 / q8_0 / q4_0, đo bộ nhớ + latency + eval 10 prompt tự chấm (`bonus/challenges/c2-kv-cache-quant.py`) | `bonus-c2-kv-cache.md` |
 | B5 | **C8** semantic cache với embedding thật (`make serve-embed` + `make semantic-cache`), threshold 0.80 / 0.87 / 0.90 | `bonus-semantic-cache.md` |
@@ -162,21 +162,24 @@ tg128:   79.5 ± 5.0 → 82.9 ± 6.3 tok/s  (1.04×, trong mức nhiễu)
 pp512:   369.4 ± 15.9 → 367.5 ± 17.7 tok/s (0.99×)
 
 C2 — KV cache f16 → q8_0 → q4_0 (ctx 32768):
-KV:      384 → 204 → 108 MiB ;  decode 79.2 → 57.9 → 58.8 tok/s ;  eval 9 → 9 → 9 /10
+KV:      384 → 204 → 108 MiB ;  decode 79.2 → 57.9 → 58.8 tok/s (lần 1: 76.4 → 55.9 → 57.2)
+eval:    9 → 9 → 9 /10 ;  KV tăng tuyến tính theo ctx (f16 48 → 768 MiB, 4k → 64k), recurrent cố định 19.27 MiB
 
-C8 — false hit #7 sim 0.86 ; false miss #4 sim 0.85 → không threshold nào sửa được cả hai
+C8 — threshold 0.80: 7/8 hit nhưng 5/7 hit trả câu trả lời SAI ; threshold 0.87: 3/8 hit, 0 sai
+     false hit #7 sim 0.86 ; false miss #4 sim ≤ 0.85 → không threshold nào sửa được cả hai
 ```
 
 **Điều này nói lên gì mà deck chưa nói:**
 
 Trên M1 Pro với model 0.8B, decode **không bị chặn bởi memory bandwidth** như deck giả định:
 ngay cả Metal cũng chỉ dùng ~57 GB/s trên ~200 GB/s. Phát hiện này giải thích được cả bốn kết quả
-bonus. (1) GPU offload chỉ cho 1.37×, và sweep ban đầu báo 2.27× là do một outlier lúc máy còn
-lạnh; phải đo lặp mới thấy. (2) Tự compile không giúp gì, vì bản prebuilt arm64 đã dùng hết NEON
-mà M1 có. (3) Quantize KV cache làm decode **chậm** 27%: tiết kiệm byte không có ý nghĩa khi
+bonus. (1) GPU offload chỉ cho 1.37×. Sweep lần đầu báo 2.27× vì một điểm `-ngl 0` = 48.4 bất thường
+(lần 2 = 84.6) mà tôi chưa giải thích được; phải đo lặp mới thấy. Offload một phần còn chậm hơn
+CPU-only, vì thêm điểm đồng bộ CPU↔GPU. (2) Tự compile không giúp gì: theo `system_info`, bản
+prebuilt đã bật NEON + DOTPROD; bản native chỉ thêm FP16_VA, và M1 không có I8MM hay SVE. (3) Quantize KV cache làm decode **chậm** 27%: tiết kiệm byte không có ý nghĩa khi
 bandwidth không phải nút cổ chai, còn dequantize thì tốn compute. Ngoài ra, Qwen3.5 là hybrid
 (6/24 layer có KV), nên KV vốn đã nhỏ. (4) Semantic cache với decoder làm embedder cho hit rate
-88% nhưng là con số ảo, có 3 câu trả lời sai. Bài học chung: phải **đo lặp và kiểm tra giả định**
+88% nhưng là con số ảo: 5/7 hit trả câu trả lời sai. Bài học chung: phải **đo lặp và kiểm tra giả định**
 trước khi tin một con số speedup.
 
 ---

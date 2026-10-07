@@ -50,9 +50,18 @@ hai binary 5 vòng (`bonus/challenges/b1-interleaved.py` → `bonus-b1-interleav
 Mức chênh nhỏ hơn độ lệch chuẩn giữa các vòng, và khoảng giá trị của hai binary chồng lên nhau
 hoàn toàn (tg128: 73.0–86.1 so với 71.8–87.5). Vậy 1.07× ở trên chỉ là nhiễu.
 
-**Vì sao không có khác biệt:** CPU này chỉ có **NEON** (ARMv8.5; M1 không có SVE và không có
-i8mm, M2 mới có i8mm). Bản prebuilt `macos-arm64` vốn đã được build riêng cho Apple Silicon
-với NEON + dot-product, nên `-DGGML_NATIVE=ON` không mở khoá thêm instruction nào. Trên x86 thì
+**Vì sao không có khác biệt (có bằng chứng):**
+
+- CPU hỗ trợ gì: `sysctl hw.optional.arm` → `FEAT_DotProd: 1`, `FEAT_FP16: 1`, `FEAT_I8MM: 0`,
+  `FEAT_BF16: 0`, không có SVE.
+- Mỗi binary bật gì (dòng `system_info` khi khởi động server):
+  - prebuilt: `CPU : NEON = 1 | ARM_FMA = 1 | DOTPROD = 1 | LLAMAFILE = 1 | ACCELERATE = 1 | REPACK = 1`
+  - source:   `CPU : NEON = 1 | ARM_FMA = 1 | FP16_VA = 1 | DOTPROD = 1 | LLAMAFILE = 1 | ACCELERATE = 1 | REPACK = 1`
+
+Bản prebuilt **đã dùng** NEON + DOTPROD, tức là đường int8 dot-product mà matmul Q4_K dựa vào.
+Build native chỉ thêm **FP16_VA** (phép tính vector fp16), mà phần nặng của decode Q4_K không đi
+qua đường này. Vì vậy tốc độ gần như không đổi. CPU không có I8MM hay SVE, nên không còn kernel
+nhanh hơn nào để mở khoá. Trên x86 thì
 khác: bản prebuilt phải chạy được trên CPU chỉ có AVX2, nên build native với AVX-512 mới có
 chênh lệch thật. Trên Mac, "build cho CPU của bạn" và "bản phát hành" gần như là cùng một target.
 
