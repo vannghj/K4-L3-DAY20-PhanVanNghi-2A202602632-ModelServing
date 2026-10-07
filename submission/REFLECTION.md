@@ -118,15 +118,18 @@ OS phải tạm dừng một worker thread. Trong lúc đó 7 thread kia spin-wa
 `llama-bench` dùng ~550% CPU mà gần như không ra token). `-t 16` là trường hợp cực đoan:
 luôn có 8 thread không được chạy, và lần chạy không xong sau hơn 9 phút. Với `-t 4`, cả 4
 thread nằm gọn trên P-core, còn dư core cho OS, nên barrier thoát nhanh. Từ 1 lên 4 thread
-chỉ tăng 2.34× (dưới tuyến tính) vì decode phải đọc ~0.5 GB weight cho mỗi token, và càng
-nhiều thread thì càng đụng giới hạn memory bandwidth mà cụm CPU kéo được (≈ 45 GB/s ở 89.9 tok/s).
+chỉ tăng 2.34× (dưới tuyến tính) vì mỗi thread thêm vào cũng thêm chi phí chia việc và
+đồng bộ ở barrier.
 
 Khi offload hết lên Metal thì thread gần như không còn ý nghĩa (1.11×), vì CPU chỉ còn dựng
 graph, submit command buffer và sampling; phần này gần như đơn luồng. Điều bất ngờ là Metal
-tốt nhất (114.7) chỉ nhanh hơn CPU tốt nhất (89.9) **1.28×**. Lý do: trên Apple Silicon, CPU
-và GPU dùng **chung một unified memory**, nên khi decode bị chặn bởi việc đọc weight thì đổi
-sang GPU không cho thêm nhiều bandwidth. Thay đổi lớn nhất trên máy tôi vì vậy không phải
-"bật GPU" mà là **không dùng E-core và không chiếm hết core**.
+tốt nhất (114.7) chỉ nhanh hơn CPU tốt nhất (89.9) **1.28×**. Đây **không** phải do bandwidth:
+114.7 tok/s × 0.5 GB ≈ 57 GB/s và CPU ≈ 45 GB/s, đều thấp hơn nhiều so với ~200 GB/s của
+M1 Pro. Với model 0.8B, mỗi token chủ yếu tốn **chi phí cố định**: dispatch kernel và đồng bộ
+CPU↔GPU sau mỗi bước, cộng với các matmul nhỏ không đủ lớn để lấp đầy GPU. Vì vậy decode ở
+đây chỉ bị chặn *một phần* bởi bandwidth, và cũng vì thế chi phí barrier/đồng bộ (thứ thread
+count tác động trực tiếp) mới quan trọng đến vậy. Thay đổi lớn nhất trên máy tôi vì vậy không
+phải "bật GPU" mà là **không dùng E-core và không chiếm hết core**.
 
 ---
 

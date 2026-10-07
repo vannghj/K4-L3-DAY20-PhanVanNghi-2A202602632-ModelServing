@@ -32,8 +32,8 @@ LAB_N_THREADS=4 make bench
 hoàn thành. Knee ở **4 thread**, và vượt qua đó hiệu năng **sụp đổ**, không chỉ đi ngang.
 
 **Vì sao 1 → 4 tăng nhưng dưới tuyến tính (2.34× cho 4× thread):** decode đọc ~0.5 GB weight
-cho mỗi token. Một core đơn không kéo đủ bandwidth; 4 P-core kéo được nhiều hơn nhưng bắt
-đầu đụng giới hạn bandwidth mà cụm CPU lấy được từ bộ nhớ (89.9 tok/s × 0.5 GB ≈ 45 GB/s).
+cho mỗi token. Một core đơn không kéo đủ bandwidth; 4 P-core kéo được nhiều hơn, nhưng mỗi
+thread thêm vào cũng thêm chi phí chia việc và đồng bộ ở barrier, nên lợi ích giảm dần.
 
 **Vì sao 8 thread chậm 7.7× so với 4 (khác kỳ vọng "peak ở physical core count"):**
 ggml chia mỗi matmul đều cho N thread rồi **đồng bộ ở barrier sau mỗi op** — hàng trăm
@@ -46,4 +46,9 @@ barrier cho mỗi token. Với `-t 8` trên M1 Pro (6P + 2E):
    như không bao giờ đủ người → chạy hơn 9 phút không xong.
 
 Bài học: số thread tối ưu là **số P-core còn rảnh**, không phải số core logic. Default
-`-t 8` của lab là lựa chọn tệ nhất có thể trên máy này.
+`-t 8` của lab chậm hơn cả `-t 1` trên máy này (11.7 vs 38.4 tok/s); chỉ `-t 16` tệ hơn.
+
+**Lưu ý về bandwidth:** 89.9 tok/s × 0.5 GB ≈ 45 GB/s, thấp hơn nhiều so với ~200 GB/s của
+M1 Pro. Vậy ở 4 thread, decode của model 0.8B này chưa thật sự chạm trần bandwidth: một phần
+lớn chi phí là đồng bộ/barrier và các matmul nhỏ, và đó là lý do thread count tác động mạnh
+đến vậy.
