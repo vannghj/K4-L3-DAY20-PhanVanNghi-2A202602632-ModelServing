@@ -50,21 +50,22 @@ chặn bởi bandwidth, nên ít byte hơn không giúp. Hỏi cùng một câu:
 
 | Users | RPS | P50 (ms) | P95 (ms) | P99 (ms) | Eff. concurrency | Failures |
 |--:|--:|--:|--:|--:|--:|--:|
-| 10 | 2.17 | 3500 | 5200 | 5500 | 7.9 | 0.0% |
-| 50 | 2.23 | 21000 | 23000 | 24000 | 39.0 | 0.0% |
+| 10 | 2.37 | 3100 | 4900 | 5600 | 7.6 | 0.0% |
+| 50 | 2.34 | 19000 | 22000 | 35000 | 39.1 | 0.0% |
 
-- **Offered load tăng 5×, throughput thực tăng:** 1.03×
-- **P95 tăng:** 4.42×
-- **Effective concurrency ở 50 users:** 39.0 so với `--parallel` = 4 slots
+- **Offered load tăng 5×, throughput thực tăng:** 0.99×
+- **P95 tăng:** 4.49×
+- **Effective concurrency ở 50 users:** 39.1 so với `--parallel` = 4 slots
 
 **Peak `llamacpp:n_busy_slots_per_decode`** (từ `make metrics` khi `make load-50` đang
 chạy): 3.94 / 4 slots
 
-**Saturation reading** (≤ 80 chữ): Server bão hoà ngay từ 10 users: RPS chỉ đi từ 2.17 lên
-2.23 trong khi P95 tăng 4.42×. Phần tăng thêm là **queue time**, vì `requests_processing`
-luôn bằng 4 còn `requests_deferred` ở mức 40–46, khớp với 39 − 4 ≈ 35 request đang chờ theo
-Little's Law (≈15.7 s chờ trong P50 21 s). Knob tôi đổi trước là `--parallel` 4→8 (kèm
-tăng ctx), vì slot là thứ đang cạn (3.94/4). Sau đó thêm admission control để giữ P95 ≤ SLO.
+**Saturation reading** (≤ 80 chữ): Server bão hoà ngay từ 10 users: RPS chỉ đi từ
+2.37 lên 2.34 trong khi P95 tăng 4.49×. Phần tăng thêm là **queue time**:
+`requests_processing` luôn bằng 4, `requests_deferred` ở mức 40–46, và theo Little's Law
+~90% latency trung bình (16.7 s) là thời gian chờ slot. Knob đầu tiên tôi thử là
+`--parallel` 4→8 (slot đang cạn, 3.94/4), nhưng lợi ích sẽ giảm dần; thứ giữ được goodput@SLO
+là admission control.
 
 ---
 
@@ -156,11 +157,10 @@ _(để trống nếu bạn không làm phần này)_
 
 ## 7. Điều làm bạn ngạc nhiên nhất  *(optional)*
 
-Continuous batching chỉ cho ~1.5× throughput chứ không phải gần 4×. Dưới load-50, server
-decode ~124 tok/s tổng với 3.94 slot bận, so với ~80 tok/s khi chạy single stream. Mỗi step
-4-sequence mất ~32 ms so với ~12.5 ms cho 1 sequence. Model 0.8B quá nhỏ để bị chặn hoàn toàn
-bởi bandwidth (0.5 GB × 80 tok/s ≈ 40 GB/s, thấp hơn nhiều so với băng thông của M1 Pro),
-nên chi phí theo từng sequence vẫn chiếm phần lớn.
+Continuous batching chỉ cho ~1.3× throughput chứ không phải gần 4×. Dưới load-50, server
+decode ~124 tok/s tổng với 3.94 slot bận, so với ~98 tok/s khi chạy single stream. Mỗi step
+mất ~32 ms. Model 0.8B quá nhỏ để bị chặn bởi bandwidth, nên chi phí theo từng sequence
+vẫn chiếm phần lớn. Thêm nữa, kết quả 2-bit vs 4-bit đảo chiều giữa hai lần chạy bench.
 
 ---
 
