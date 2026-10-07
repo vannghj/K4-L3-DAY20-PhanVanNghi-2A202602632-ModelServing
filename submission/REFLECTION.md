@@ -36,13 +36,13 @@ deadline. Setup không lỗi trên Python 3.14. Workaround duy nhất: `make tun
 
 | Quantization | Size (GB) | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode (tok/s) |
 |---|--:|--:|--:|--:|--:|--:|
-| Q4_K_M | 0.50 | 2088 | 62 / 259 | 12.5 / 15.8 | 848 / 956 / 956 | 79.8 |
-| UD-Q2_K_XL | 0.39 | 2031 | 60 / 74 | 10.4 / 11.1 | 722 / 773 / 773 | 95.7 |
+| Q4_K_M | 0.50 | 2079 | 61 / 89 | 10.2 / 10.8 | 691 / 728 / 728 | 98.0 |
+| UD-Q2_K_XL | 0.39 | 2048 | 67 / 94 | 12.9 / 14.6 | 868 / 989 / 989 | 77.7 |
 
-**Quan sát** (≤ 60 chữ): 2-bit decode nhanh hơn 1.20× (95.7 vs 79.8 tok/s) và nhỏ hơn 22%.
-Nhưng khi hỏi cùng một câu (temperature 0), 2-bit tính sai 17×23 = 381 và nhầm bandwidth
-thành capacity, còn 4-bit trả lời 391 (đúng). Với model 0.8B và 16 GB RAM thì 2-bit **không
-đáng**. Nó chỉ đáng khi model không vừa RAM ở 4-bit.
+**Quan sát** (≤ 60 chữ): Lần đo này 2-bit **chậm hơn 1.26×** (77.7 vs 98.0 tok/s); lần
+đo trước thì nhanh hơn 1.20×, nên khác biệt chỉ ngang nhiễu. Model 0.8B trên Metal không bị
+chặn bởi bandwidth, nên ít byte hơn không giúp. Hỏi cùng một câu: 2-bit tính 17×23 = 381
+(sai), 4-bit = 391 (đúng). **Không đáng.**
 
 ---
 
