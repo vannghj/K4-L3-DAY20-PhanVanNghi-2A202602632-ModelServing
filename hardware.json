@@ -1,0 +1,50 @@
+{
+  "runtime_environment": "local",
+  "cpu": {
+    "arch": "arm64",
+    "cores_logical": 8,
+    "model": "Apple M1 Pro",
+    "cores_physical": 8,
+    "apple_silicon": true,
+    "neon": true
+  },
+  "ram_gb": 16.0,
+  "gpu": {
+    "backends": {
+      "nvidia_cuda": false,
+      "amd_rocm": false,
+      "apple_metal": true,
+      "vulkan": false,
+      "cpu_only": false
+    },
+    "details": {
+      "apple_metal": "Apple Silicon (Metal built into the release binary)"
+    }
+  },
+  "platform": {
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "python": "3.14.8"
+  },
+  "recommendation": {
+    "recommended_paths": [
+      "01-measure",
+      "02-serve",
+      "03-integrate",
+      "bonus/sweeps",
+      "bonus/mlx"
+    ],
+    "model_key": "qwen35-0.8b",
+    "model_choice_reason": "chosen with LAB_MODEL",
+    "model_label": "Qwen3.5 0.8B",
+    "model_repo": "unsloth/Qwen3.5-0.8B-GGUF",
+    "primary_model_file": "Qwen3.5-0.8B-Q4_K_M.gguf",
+    "compare_model_file": "Qwen3.5-0.8B-UD-Q2_K_XL.gguf",
+    "llama_cpp_backend": "Metal",
+    "llama_cpp_cmake_flag": "-DGGML_METAL=ON",
+    "llama_cpp_build": "b10488",
+    "ram_sufficient": true,
+    "fallback": null
+  }
+}
