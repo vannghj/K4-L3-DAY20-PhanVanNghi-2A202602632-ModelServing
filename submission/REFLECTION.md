@@ -60,8 +60,8 @@ chặn bởi bandwidth, nên ít byte hơn không giúp. Hỏi cùng một câu:
 **Peak `llamacpp:n_busy_slots_per_decode`** (từ `make metrics` khi `make load-50` đang
 chạy): 3.94 / 4 slots
 
-**Saturation reading** (≤ 80 chữ): Server bão hoà ngay từ 10 users: RPS chỉ đi từ
-2.37 lên 2.34 trong khi P95 tăng 4.49×. Phần tăng thêm là **queue time**:
+**Saturation reading** (≤ 80 chữ): Server bão hoà ngay từ 10 users: RPS gần như đứng yên
+(2.37 → 2.34) trong khi P95 tăng 4.49×. Phần tăng thêm là **queue time**:
 `requests_processing` luôn bằng 4, `requests_deferred` ở mức 40–46, và theo Little's Law
 ~90% latency trung bình (16.7 s) là thời gian chờ slot. Knob đầu tiên tôi thử là
 `--parallel` 4→8 (slot đang cạn, 3.94/4), nhưng lợi ích sẽ giảm dần; thứ giữ được goodput@SLO
