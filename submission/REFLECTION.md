@@ -139,26 +139,45 @@ phải "bật GPU" mà là **không dùng E-core và không chiếm hết core**
 > Bỏ trống nếu không làm. Xem `docs/bonus/README.md`. Đừng làm hết — **một** finding sâu
 > ăn điểm hơn năm bảng nông.
 
-**Đã làm:** B5 — C8 semantic cache với embedding thật (`make serve-embed` + `make semantic-cache`,
-không dùng `--offline`), chạy ở threshold 0.80 / 0.87 / 0.90. Chi tiết: `benchmarks/bonus-semantic-cache.md`.
-Cũng làm B2 `make sweep-ctx` (`benchmarks/bonus-ctx-len-sweep.md`): TTFT 196 ms @256 token →
-4675 ms @8192 token; prefill tok/s tăng 1305 → 1916 tới 4096 token rồi giảm còn 1752 (attention O(n²)).
+**Đã làm (đủ B1–B5):**
+
+| # | Làm gì | Report |
+|---|---|---|
+| B1 | `make build-llama` (`-DGGML_NATIVE=ON`, Metal) + `make compare-builds` (`LAB_N_THREADS=4`), rồi đo xen kẽ 5 vòng để tách nhiễu | `bonus-build-compare-tg128.md`, `bonus-b1-interleaved.md` |
+| B2 | `make sweep-gpu` (`-ngl` 0→99) và `make sweep-ctx` (256→8192 token) | `bonus-gpu-offload-sweep.md`, `bonus-ctx-len-sweep.md` |
+| B3 | Before/after của GPU offload (từ B1/B2), đo lặp 3 vòng | xem Numbers bên dưới |
+| B4 | **C2** KV cache quantization: f16 / q8_0 / q4_0, đo bộ nhớ + latency + eval 10 prompt tự chấm (`bonus/challenges/c2-kv-cache-quant.py`) | `bonus-c2-kv-cache.md` |
+| B5 | **C8** semantic cache với embedding thật (`make serve-embed` + `make semantic-cache`), threshold 0.80 / 0.87 / 0.90 | `bonus-semantic-cache.md` |
 
 **Numbers:**
 
 ```
-before:  threshold 0.80 → 7/8 hit (88%), nhưng 3 false hit (#2, #5, #7 trả câu trả lời SAI)
-after:   threshold 0.87 → 3/8 hit (38%), 0 false hit, miss 1 paraphrase thật (#4)
-cost:    miss ~850–2200 ms (gọi LLM) · hit 0 ms
+B3 — GPU offload, cùng binary, llama-bench tg128 -t 4, mean của 3 vòng xen kẽ:
+before:  83.0 tok/s   (-ngl 0, CPU)
+after:   113.8 tok/s  (-ngl 99, Metal)
+speedup: 1.37×
+
+B1 — tự compile vs prebuilt (5 vòng xen kẽ, -ngl 0 -t 4):
+tg128:   79.5 ± 5.0 → 82.9 ± 6.3 tok/s  (1.04×, trong mức nhiễu)
+pp512:   369.4 ± 15.9 → 367.5 ± 17.7 tok/s (0.99×)
+
+C2 — KV cache f16 → q8_0 → q4_0 (ctx 32768):
+KV:      384 → 204 → 108 MiB ;  decode 79.2 → 57.9 → 58.8 tok/s ;  eval 9 → 9 → 9 /10
+
+C8 — false hit #7 sim 0.86 ; false miss #4 sim 0.85 → không threshold nào sửa được cả hai
 ```
 
 **Điều này nói lên gì mà deck chưa nói:**
 
-Deck nói semantic cache tiết kiệm 100% compute khi hit, nhưng không nói hit rate có thể là
-**ảo**. Dùng mean-pooled state của model chat 0.8B làm embedding thì mọi câu đều có cosine
-0.85–0.89. Câu lạ (#7, 0.86) còn giống câu gốc hơn một paraphrase thật (#4, 0.85), nên không
-có threshold nào vừa bắt hết paraphrase vừa tránh được false hit. Threshold phải chọn theo
-**false-hit rate**, và cần một embedding model chuyên dụng.
+Trên M1 Pro với model 0.8B, decode **không bị chặn bởi memory bandwidth** như deck giả định:
+ngay cả Metal cũng chỉ dùng ~57 GB/s trên ~200 GB/s. Phát hiện này giải thích được cả bốn kết quả
+bonus. (1) GPU offload chỉ cho 1.37×, và sweep ban đầu báo 2.27× là do một outlier lúc máy còn
+lạnh; phải đo lặp mới thấy. (2) Tự compile không giúp gì, vì bản prebuilt arm64 đã dùng hết NEON
+mà M1 có. (3) Quantize KV cache làm decode **chậm** 27%: tiết kiệm byte không có ý nghĩa khi
+bandwidth không phải nút cổ chai, còn dequantize thì tốn compute. Ngoài ra, Qwen3.5 là hybrid
+(6/24 layer có KV), nên KV vốn đã nhỏ. (4) Semantic cache với decoder làm embedder cho hit rate
+88% nhưng là con số ảo, có 3 câu trả lời sai. Bài học chung: phải **đo lặp và kiểm tra giả định**
+trước khi tin một con số speedup.
 
 ---
 
@@ -200,5 +219,6 @@ xem được → 0 điểm.
 Dùng **Claude Code** (Claude Opus 5.5) trong VS Code để chạy các lệnh `make` của lab
 (setup, bench, tune, serve, smoke, load test, metrics, pipeline) và soạn bản nháp phần
 nhận xét trong `benchmarks/*.md` cùng REFLECTION này dựa trên số liệu đo trên máy tôi.
-Tôi đã đọc lại và hiểu các lập luận. Không có số liệu nào bị sửa tay. Screenshot do tôi tự
+Claude Code cũng viết hai script bonus trong `bonus/challenges/` (đo xen kẽ cho B1 và thí nghiệm
+C2 KV cache). Tôi đã đọc lại và hiểu các lập luận. Không có số liệu nào bị sửa tay. Screenshot do tôi tự
 chụp từ terminal.

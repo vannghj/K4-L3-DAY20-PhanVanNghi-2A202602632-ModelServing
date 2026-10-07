@@ -1,0 +1,50 @@
+[
+  {
+    "type": "f16",
+    "kv_mib": "384.00",
+    "rss_mb": 1048,
+    "prompt_n": 4993,
+    "pp_tok_s": 1844.2136273831557,
+    "tg_tok_s": 79.18455742761047,
+    "passed": 9,
+    "fails": [
+      "arith `Compute 37*24.` -> `80`"
+    ],
+    "kv_log": [
+      "0.01.113.317 I llama_kv_cache: size =  384.00 MiB ( 32768 cells,   6 layers,  1/1 seqs), K (f16):  192.00 MiB, V (f16):  192.00 MiB",
+      "0.01.114.860 I llama_memory_recurrent: size =   19.27 MiB (     1 cells,  24 layers,  1 seqs  0 rs_seq), R (f32):    1.27 MiB, S (f32):   18.00 MiB"
+    ]
+  },
+  {
+    "type": "q8_0",
+    "kv_mib": "204.00",
+    "rss_mb": 896,
+    "prompt_n": 4993,
+    "pp_tok_s": 1652.117029312917,
+    "tg_tok_s": 57.93612686853062,
+    "passed": 9,
+    "fails": [
+      "arith `Compute 37*24.` -> `80`"
+    ],
+    "kv_log": [
+      "0.00.876.812 I llama_kv_cache: size =  204.00 MiB ( 32768 cells,   6 layers,  1/1 seqs), K (q8_0):  102.00 MiB, V (q8_0):  102.00 MiB",
+      "0.00.878.785 I llama_memory_recurrent: size =   19.27 MiB (     1 cells,  24 layers,  1 seqs  0 rs_seq), R (f32):    1.27 MiB, S (f32):   18.00 MiB"
+    ]
+  },
+  {
+    "type": "q4_0",
+    "kv_mib": "108.00",
+    "rss_mb": 801,
+    "prompt_n": 4993,
+    "pp_tok_s": 1683.6680156018328,
+    "tg_tok_s": 58.775027666245165,
+    "passed": 9,
+    "fails": [
+      "arith `Compute 37*24.` -> `86`"
+    ],
+    "kv_log": [
+      "0.00.801.279 I llama_kv_cache: size =  108.00 MiB ( 32768 cells,   6 layers,  1/1 seqs), K (q4_0):   54.00 MiB, V (q4_0):   54.00 MiB",
+      "0.00.802.811 I llama_memory_recurrent: size =   19.27 MiB (     1 cells,  24 layers,  1 seqs  0 rs_seq), R (f32):    1.27 MiB, S (f32):   18.00 MiB"
+    ]
+  }
+]

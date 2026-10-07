@@ -45,3 +45,29 @@ thực của embedder này là 38% (0.87), và vẫn quá mong manh để dùng 
 Kết luận: semantic cache chỉ an toàn khi có **embedding model chuyên dụng** (BGE-M3,
 Qwen3-Embedding) với khoảng cách lớn giữa paraphrase và câu lạ. Threshold phải được chọn theo
 false-hit rate đo được trên dữ liệu thật, không theo hit rate.
+
+## Chẩn đoán theo yêu cầu C8
+
+- **False hit:** #7 *"What is prefix caching?"*, một chủ đề mới, có similarity **0.86** và hit vào
+  câu trả lời đã cache (ở threshold 0.80). #2 *"Explain TTFT and TPOT."* (0.86) và #5 *"How does
+  PagedAttention work?"* (0.85) cũng là false hit: lúc đó cache chưa có câu nào cùng chủ đề.
+- **False miss:** #4 *"What does time to first token mean?"* là paraphrase thật của #2 nhưng
+  chỉ đạt **0.85**, và bị miss ở threshold 0.87.
+- **Không threshold nào sửa được cả hai:** muốn #4 hit thì threshold phải ≤ 0.85, nhưng khi đó
+  #7 (0.86) chắc chắn hit sai. Muốn chặn #7 thì threshold phải > 0.86, và khi đó #4 bị miss. Câu
+  lạ lại có điểm **cao hơn** paraphrase thật, nên mọi threshold đều sai ít nhất một trường hợp.
+
+**Vì sao decoder là encoder kém:** model chat được train để dự đoán **token kế tiếp**. Hidden
+state của nó mã hoá "câu này sẽ tiếp tục thế nào", tức chủ yếu là định dạng câu hỏi (*"What
+is…?"*, *"Explain…"*) và ngôn ngữ, chứ không phải nghĩa của cả câu. Mean-pooling qua mọi token
+lại làm loãng thêm, vì các token chung (what, is, the, ?) chiếm phần lớn vector. Kết quả là mọi
+câu hỏi tiếng Anh ngắn đều dồn vào một vùng hẹp (0.85–0.89). Embedding model chuyên dụng
+(Qwen3-Embedding, BGE-M3, EmbeddingGemma) được train bằng **contrastive learning**: kéo các cặp
+paraphrase lại gần nhau và đẩy các cặp khác nghĩa ra xa. Vì thế khoảng cách giữa "cùng nghĩa" và
+"khác nghĩa" rộng, và threshold mới có ý nghĩa.
+
+**Rủi ro bảo mật:** một semantic cache (hoặc prefix/KV cache) dùng chung giữa nhiều người dùng
+là một **timing side channel**. Hit trả về trong 0 ms còn miss mất ~1 s, nên kẻ tấn công có thể
+dò xem người khác đã hỏi một câu gần giống hay chưa. Hệ thống production phải **salt/partition
+cache theo tenant**. Ngoài ra, false hit như #7 còn trả nhầm câu trả lời của người này cho người
+khác, tức là rò rỉ dữ liệu trực tiếp.
