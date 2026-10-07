@@ -33,8 +33,19 @@ Either way, this is the number to remember when someone proposes stuffing more r
 context into a RAG prompt "because the context window allows it". Prefill is paid in full,
 on every request, before the first token appears.
 
-## Your finding (required -- replace this line)
+## Your explanation
 
-_At what prompt length does prefill start to dominate your end-to-end latency? Did you see
-the quadratic bend, or is your range still linear -- and what does that tell you about how
-many retrieved chunks your RAG pipeline can afford?_
+**Prefill throughput tăng rồi mới giảm.** 1304.8 tok/s ở 256 token → 1916.2 tok/s ở 4096 token,
+rồi giảm còn 1752.3 tok/s ở 8192. Prompt ngắn **không lấp đầy GPU**: matmul của prefill chỉ đủ
+lớn để dùng hết compute khi batch token đủ dài, nên tok/s tăng theo độ dài prompt. Sau 4096,
+phần attention O(n²) (mỗi token mới phải nhìn lại toàn bộ token trước nó) bắt đầu lộ ra, nên
+throughput giảm. Đó là điểm bắt đầu của chỗ uốn bậc hai. Trong khoảng đã đo, TTFT vẫn gần
+tuyến tính (0.74× so với linear vì GPU được dùng hiệu quả hơn).
+
+**Khi nào prefill chiếm ưu thế:** TTFT 196 ms ở 256 token → 1189 ms ở 2048 → **4675 ms ở 8192**.
+Pipeline ở `03-integration-results.md` chỉ có 113–151 token prompt (prefill ~100–475 ms) và
+decode ~0.8–2 s. Từ ~2–4k token context trở lên, prefill sẽ **lớn hơn cả decode**.
+
+**RAG gánh được bao nhiêu chunk:** với budget TTFT ≈ 1 s, tối đa ~2000 token context, tức
+khoảng 6 chunk × 300 token. Ở 8192 token, chỉ riêng TTFT đã ~4.7 s. Đây là lý do top-k nhỏ,
+rerank, và prefix/KV caching cho system prompt quan trọng với RAG.

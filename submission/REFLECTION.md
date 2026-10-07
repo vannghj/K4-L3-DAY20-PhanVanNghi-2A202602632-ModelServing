@@ -141,6 +141,8 @@ phải "bật GPU" mà là **không dùng E-core và không chiếm hết core**
 
 **Đã làm:** B5 — C8 semantic cache với embedding thật (`make serve-embed` + `make semantic-cache`,
 không dùng `--offline`), chạy ở threshold 0.80 / 0.87 / 0.90. Chi tiết: `benchmarks/bonus-semantic-cache.md`.
+Cũng làm B2 `make sweep-ctx` (`benchmarks/bonus-ctx-len-sweep.md`): TTFT 196 ms @256 token →
+4675 ms @8192 token; prefill tok/s tăng 1305 → 1916 tới 4096 token rồi giảm còn 1752 (attention O(n²)).
 
 **Numbers:**
 
